@@ -629,6 +629,7 @@ function Result({squad,formation,hide,sim,onRestart,onRebuild}){
   );
 }
 
+const C={field:"#0b6b3a",fieldDark:"#075a30",brass:"#d9a441",brassHi:"#f2cd6b",card:"#0f2418"};
 const CSS=`
 :root{--field:${C.field};--field-dark:${C.fieldDark};--brass:${C.brass};--brass-hi:${C.brassHi};--card:${C.card};}
 *{box-sizing:border-box}
@@ -766,3 +767,4 @@ const CSS=`
 .group-pts{font-size:13px;opacity:.8;padding:6px 4px}.group-pts b{color:var(--brass-hi)}
 @media(prefers-reduced-motion:reduce){.reel-blur,.verdict.win7 h2,.frame-jackpot,.jackpot-tag,.reel.jackpot{animation:none}}
 `;
+
