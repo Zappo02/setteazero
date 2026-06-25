@@ -536,17 +536,18 @@ function Draft({formation,squad,hide,round,totalSlots,spinning,current,doSpin,op
         <SlotMachine spinning={spinning} result={current} onSpin={doSpin} canSpin={round<totalSlots}
           roundLabel={`Scelta ${round+1} di ${totalSlots}`} locked={nationLock}
           rerollsLeft={rerollsLeft} canReroll={maxRerolls>0}/>
-        <div className="progress">{formation.map((_,i)=><span key={i} className={squad[i]?"on":""}/>)}</div>
+        <button className="pitch-toggle" onClick={()=>setShowPitch(s=>!s)}>
+          {showPitch?"▾ Nascondi campo":"▸ Mostra campo"}
+        </button>
+        <div className={`draft-mid mobile-pitch${showPitch?" open":""}`}><Pitch formation={formation} squad={squad} hide={hide}/></div>
         <div className="role-summary">
           {["GK","DF","MF","FW"].map(r=>(
             <span key={r} className={freeByRole[r]>0?"need":"done"}>{r} <b>{freeByRole[r]}</b></span>
           ))}
         </div>
-        <button className="pitch-toggle" onClick={()=>setShowPitch(s=>!s)}>
-          {showPitch?"▾ Nascondi campo":"▸ Mostra campo"}
-        </button>
+        <div className="progress">{formation.map((_,i)=><span key={i} className={squad[i]?"on":""}/>)}</div>
       </div>
-      <div className={`draft-mid${showPitch?" open":""}`}><Pitch formation={formation} squad={squad} hide={hide}/></div>
+      <div className="draft-mid desktop-pitch"><Pitch formation={formation} squad={squad} hide={hide}/></div>
       <div className="draft-right">
         {current?(
           <div className="roster">
@@ -784,17 +785,19 @@ const CSS=`
 .role-summary .need{color:#eaf4ec}.role-summary .need b{color:var(--brass-hi)}
 .role-summary .done{opacity:.4}
 .pitch-toggle{display:none}
+.mobile-pitch{display:none}
 @media(max-width:980px){
-  .draft{grid-template-columns:1fr;gap:14px}
-  .draft-left{position:sticky;top:8px;z-index:5;background:rgba(7,22,14,.96);padding:10px 0;border-bottom:1px solid #1d4a31}
+  .draft{grid-template-columns:1fr;gap:12px}
+  .draft-left{display:flex;flex-direction:column;gap:12px;align-items:center;background:rgba(7,22,14,.97);padding:10px 0 4px;border-bottom:1px solid #1d4a31}
   .slot-frame{padding:12px}
-  .slot-window{min-height:72px;padding:12px 8px}
-  .reel{font-size:20px;min-width:60px}.reel-wide{font-size:15px;min-width:120px}
+  .slot-window{min-height:64px;padding:10px 8px}
+  .reel{font-size:19px;min-width:54px}.reel-wide{font-size:14px;min-width:110px}
   .slot-caption{margin-top:8px}
-  .pitch-toggle{display:inline-block;background:none;border:1px solid #2f7d52;color:var(--brass-hi);padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
-  .draft-mid{display:none}
-  .draft-mid.open{display:block;margin:0 auto}
-  .draft-mid.open .pitch{max-width:300px}
+  .pitch-toggle{display:inline-block;background:#143726;border:1px solid #2f7d52;color:var(--brass-hi);padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer}
+  .desktop-pitch{display:none}
+  .mobile-pitch{display:none}
+  .mobile-pitch.open{display:block;width:260px;margin:0 auto}
+  .mobile-pitch.open .pitch{width:260px;max-width:260px;height:372px;aspect-ratio:auto;margin:0}
   .roster{max-height:none}
   .roster-list{max-height:46vh}
 }
@@ -905,3 +908,4 @@ const CSS=`
 .group-pts{font-size:13px;opacity:.8;padding:6px 4px}.group-pts b{color:var(--brass-hi)}
 @media(prefers-reduced-motion:reduce){.reel-blur,.verdict.win7 h2,.frame-jackpot,.jackpot-tag,.reel.jackpot{animation:none}}
 `;
+
