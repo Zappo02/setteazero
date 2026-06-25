@@ -177,103 +177,101 @@ function buildTournament(squad,formation,seed){
 async function shareResult({squad,formation,sim,headline,scoreline,topScorers}){
   const W=1080,H=1920,cv=document.createElement("canvas");cv.width=W;cv.height=H;
   const x=cv.getContext("2d");
-  const brass="#f2cd6b", neon="#3df2c0", neonPink="#ff3d8b", neonRed="#ff5a52";
-  // ---- sfondo profondo
-  const g=x.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,"#0d3a26");g.addColorStop(.5,"#0a2418");g.addColorStop(1,"#050f0a");
-  x.fillStyle=g;x.fillRect(0,0,W,H);
-  // colore dell'esito -> guida tutta la palette dei testi grandi
+  const brass="#f2cd6b", neon="#36f0bf", neonPink="#ff4d92", neonRed="#ff6157", txt="#eaf4ec", mute="#8fb8a3";
+  // ---- SFONDO PIATTO UNIFORME (un solo colore, niente gradienti né bande)
+  x.fillStyle="#0a2418";x.fillRect(0,0,W,H);
   const isWin=sim.champion||sim.sevenZero;
   const accent=sim.sevenZero?neonPink:sim.champion?neon:!sim.qualified?neonRed:brass;
-  // bagliore radiale dietro il titolo, tinta dell'accento
-  const ac=hexToRgb(accent);
-  const rg2=x.createRadialGradient(W/2,470,40,W/2,470,700);
-  rg2.addColorStop(0,`rgba(${ac.r},${ac.g},${ac.b},.22)`);rg2.addColorStop(1,`rgba(${ac.r},${ac.g},${ac.b},0)`);
-  x.fillStyle=rg2;x.fillRect(0,120,W,800);
 
-  // ---- HEADER BRAND (più grande)
-  x.textAlign="center";
-  drawNeonText(x,"SETTE A ZERO",W/2,150,brass,true,96);
-  x.fillStyle="#8fb8a3";x.font="600 34px Arial";x.fillText("build · spin · 7–0",W/2,200);
+  const PAD=60;
+  let cy=140; // cursore verticale: ogni blocco avanza da qui
 
-  // ---- HEADLINE NEON (turno o esito) + SCORELINE
-  const big=sim.sevenZero?150:isWin?116:108;
-  drawNeon(x,headline.toUpperCase(),W/2,400,W-100,big,accent,true);
-  if(scoreline){
-    drawNeonText(x,scoreline,W/2,sim.sevenZero?560:540,accent,true,sim.sevenZero?150:110);
-  }
+  // ---- BRAND
+  cy=neonLine(x,"SETTE A ZERO",W/2,cy,W-100,88,brass);
+  x.textAlign="center";x.fillStyle=mute;x.font="600 32px Arial";
+  cy+=14;x.fillText("build · spin · 7–0",W/2,cy);cy+=40;
 
-  // ---- CAMPO grande
-  const fx=50,fy=scoreline?620:560,fw=W-100,fh=900;
-  drawPitch(x,fx,fy,fw,fh,squad,formation);
+  // ---- ESITO (headline + scoreline)
+  cy+=30;
+  cy=neonLine(x,headline.toUpperCase(),W/2,cy,W-90,100,accent);
+  if(scoreline){ cy+=14; cy=neonLine(x,scoreline,W/2,cy,W-90,108,accent); }
+  cy+=30;
 
-  // ---- CAMMINO sintetico
-  let cy=fy+fh+64;
+  // ---- CAMPO (altezza calcolata per riempire fino ai box bassi)
+  const bottomBlock=360;       // spazio per cammino + box in fondo (aumentato per non sovrapporre)
+  const footer=70;
+  const fieldTop=cy;
+  const fieldBottom=H-footer-bottomBlock;
+  const fh=Math.max(640,fieldBottom-fieldTop);
+  drawPitch(x,PAD,fieldTop,W-PAD*2,fh,squad,formation);
+  cy=fieldTop+fh+50;
+
+  // ---- CAMMINO (una riga, centrata, sopra i box)
+  x.textAlign="center";x.fillStyle=mute;x.font="700 25px Arial";
+  x.fillText("IL CAMMINO",W/2,cy);cy+=42;
   const grp=sim.ties.filter(t=>t.phase==="group");
   const gW=grp.filter(t=>t.result==="W").length,gD=grp.filter(t=>t.result==="D").length,gL=grp.filter(t=>t.result==="L").length;
-  x.textAlign="center";x.fillStyle="#7fa890";x.font="700 28px Arial";x.fillText("IL CAMMINO",W/2,cy);
-  cy+=48;x.fillStyle="#eaf4ec";x.font="600 34px Arial";
-  let line=`Gironi ${gW}V-${gD}N-${gL}P`;
   const ko=sim.ties.filter(t=>t.phase==="ko");
-  if(ko.length) line+="   ·   "+ko.map(m=>`${m.round.slice(0,3)} ${m.gf}-${m.ga}`).join("   ");
-  wrapText(x,line,W/2,cy,W-100,44,"center");
+  let camm=`Gironi ${gW}V-${gD}N-${gL}P`;
+  if(ko.length) camm+="  ·  "+ko.map(m=>`${m.round.slice(0,3)} ${m.gf}-${m.ga}`).join("  ·  ");
+  x.fillStyle=txt;x.font="600 28px Arial";
+  wrapText(x,camm,W/2,cy,W-90,38,"center");
 
-  // ---- MVP + FORZA (riquadri più grandi)
+  // ---- BOX MVP + FORZA (ancorati in basso)
+  const boxH=176, boxGap=24;
+  const by=H-footer-boxH;
+  const totW=W-PAD*2-boxGap, mvpW=Math.round(totW*0.63), forW=totW-mvpW;
   const mvp=topScorers[0];
-  const by=H-330, pad=50, boxGap=26, totW=W-pad*2-boxGap;
-  const mvpW=totW*0.64, forW=totW*0.36, boxH=190;
   // MVP
-  x.fillStyle=`rgba(${hexToRgb(neon).r},${hexToRgb(neon).g},${hexToRgb(neon).b},.10)`;
-  roundRect(x,pad,by,mvpW,boxH,24);x.fill();
-  x.strokeStyle=neon;x.lineWidth=3;roundRect(x,pad,by,mvpW,boxH,24);x.stroke();
+  fillRGBA(x,neon,.10);roundRect(x,PAD,by,mvpW,boxH,22);x.fill();
+  x.strokeStyle=neon;x.lineWidth=3;roundRect(x,PAD,by,mvpW,boxH,22);x.stroke();
   x.textAlign="left";
-  x.fillStyle=neon;x.font="800 30px Arial";x.fillText("★ MIGLIORE IN CAMPO",pad+34,by+56);
-  x.fillStyle="#fff";x.font="900 60px Arial Black,Arial";
-  x.fillText(fitName(x,mvp.player.n,mvpW-68,60),pad+34,by+120);
-  x.fillStyle="#9fc4ad";x.font="500 32px Arial";
-  x.fillText(`${mvp.team} '${mvp.year.slice(2)} · ${mvp.goals}G ${mvp.assists}A`,pad+34,by+164);
+  x.fillStyle=neon;x.font="800 28px Arial";x.fillText("★ MIGLIORE IN CAMPO",PAD+30,by+50);
+  x.fillStyle="#fff";x.font="900 56px Arial Black,Arial";
+  x.fillText(fitName(x,mvp.player.n,mvpW-60,56),PAD+30,by+112);
+  x.fillStyle=mute;x.font="500 30px Arial";
+  x.fillText(`${mvp.team} '${mvp.year.slice(2)} · ${mvp.goals}G ${mvp.assists}A`,PAD+30,by+154);
   // FORZA
-  const fbx=pad+mvpW+boxGap;
-  x.fillStyle=`rgba(${hexToRgb(brass).r},${hexToRgb(brass).g},${hexToRgb(brass).b},.12)`;
-  roundRect(x,fbx,by,forW,boxH,24);x.fill();
-  x.strokeStyle=brass;x.lineWidth=3;roundRect(x,fbx,by,forW,boxH,24);x.stroke();
+  const fbx=PAD+mvpW+boxGap;
+  fillRGBA(x,brass,.12);roundRect(x,fbx,by,forW,boxH,22);x.fill();
+  x.strokeStyle=brass;x.lineWidth=3;roundRect(x,fbx,by,forW,boxH,22);x.stroke();
   x.textAlign="center";const fcx=fbx+forW/2;
-  x.fillStyle=brass;x.font="900 104px Arial Black,Arial";x.fillText(String(sim.myStr),fcx,by+118);
-  x.fillStyle="#9fc4ad";x.font="700 26px Arial";x.fillText("FORZA XI",fcx,by+162);
+  x.fillStyle=brass;x.font="900 96px Arial Black,Arial";x.fillText(String(sim.myStr),fcx,by+108);
+  x.fillStyle=mute;x.font="700 25px Arial";x.fillText("FORZA XI",fcx,by+150);
 
-  // ---- footer
-  x.textAlign="center";x.fillStyle=brass;x.font="800 40px Arial";
-  x.fillText("universosportivo.com",W/2,H-64);
+  // ---- FOOTER
+  x.textAlign="center";x.fillStyle=brass;x.font="800 38px Arial";
+  x.fillText("universosportivo.com",W/2,H-30);
 
   const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
   const file=new File([blob],"sette-a-zero.png",{type:"image/png"});
   const shareData={files:[file],title:"Sette a Zero",text:`${headline} — il mio undici dei Mondiali su Sette a Zero. Forza XI ${sim.myStr}. Gioca su universosportivo.com`};
   try{
     if(navigator.canShare&&navigator.canShare(shareData)){ await navigator.share(shareData); return; }
-  }catch(e){ /* utente ha annullato o share non disponibile: si scarica */ }
+  }catch(e){}
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="sette-a-zero.png";a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function hexToRgb(h){const n=parseInt(h.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
-// testo neon multilinea
-function drawNeon(x,text,cx,cy,maxW,size,color,strong){
+function fillRGBA(x,hex,a){const c=hexToRgb(hex);x.fillStyle=`rgba(${c.r},${c.g},${c.b},${a})`;}
+// disegna una o più righe di testo neon centrate a partire da y (top), restituisce la y dopo l'ultima riga
+function neonLine(x,text,cx,topY,maxW,size,color){
   x.font=`900 ${size}px Arial Black,Arial`;
   const words=text.split(" ");let line="",lines=[];
   for(const w of words){const t=line?line+" "+w:w;if(x.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}
   if(line)lines.push(line);
-  let y=cy-(lines.length-1)*size*0.55;
-  for(const l of lines){drawNeonText(x,l,cx,y,color,strong,size);y+=size*1.05;}
+  let y=topY+size; // baseline prima riga
+  for(const l of lines){ neonGlyph(x,l,cx,y,color,size); y+=size*1.04; }
+  return y-size*0.20;
 }
-function drawNeonText(x,t,cx,y,color,strong,size){
-  x.save();x.textAlign="center";
-  if(size)x.font=`900 ${size}px Arial Black,Arial`;
-  if(strong){
-    x.shadowColor=color;x.shadowBlur=46;x.fillStyle=color;x.fillText(t,cx,y);
-    x.shadowBlur=24;x.fillText(t,cx,y);
-    x.shadowBlur=0;
-    x.fillStyle="#ffffff";x.fillText(t,cx,y);
-    x.strokeStyle=color;x.lineWidth=2.5;x.strokeText(t,cx,y);
-  }else{x.shadowColor="rgba(0,0,0,.4)";x.shadowBlur=8;x.fillStyle=color;x.fillText(t,cx,y);}
+// neon pulito: glow morbido + riempimento netto, NIENTE stroke sbavato
+function neonGlyph(x,t,cx,y,color,size){
+  x.save();x.textAlign="center";x.font=`900 ${size}px Arial Black,Arial`;
+  x.shadowColor=color;x.shadowBlur=size*0.28;
+  x.fillStyle=color;x.fillText(t,cx,y);          // base colorata con glow
+  x.shadowBlur=0;
+  x.fillStyle="#ffffff";                          // cuore bianco netto
+  x.globalAlpha=0.92;x.fillText(t,cx,y);x.globalAlpha=1;
   x.restore();
 }
 function fitName(x,name,maxW,size){
@@ -301,24 +299,34 @@ function drawPitch(x,X,Y,w,h,squad,formation){
   x.beginPath();x.moveTo(X+18,Y+h/2);x.lineTo(X+w-18,Y+h/2);x.stroke();
   x.beginPath();x.arc(X+w/2,Y+h/2,72,0,7);x.stroke();
   x.strokeRect(X+w*0.27,Y+18,w*0.46,100);x.strokeRect(X+w*0.27,Y+h-118,w*0.46,100);
-  // card giocatori più grandi
+  // card giocatori: dimensione DINAMICA in base alla distanza minima tra slot,
+  // così non si sovrappongono mai (qualunque formazione)
+  let minDist=Infinity;
+  for(let i=0;i<formation.length;i++)for(let j=i+1;j<formation.length;j++){
+    const dx=(formation[i][1]-formation[j][1])/100*w;
+    const dy=(formation[i][2]-formation[j][2])/100*h;
+    minDist=Math.min(minDist,Math.hypot(dx,dy));
+  }
+  const bw=Math.max(120,Math.min(200,minDist*0.96));
+  const bh=Math.max(64,Math.min(88,minDist*0.46));
   formation.forEach(([role,px,py],i)=>{
     const f=squad[i];if(!f)return;
     const cx=X+(px/100)*w,cy=Y+(py/100)*h;
-    const bw=Math.min(218,w/3.6),bh=92;
     const L=cx-bw/2, T=cy-bh/2;
-    x.fillStyle="rgba(5,16,11,.95)";roundRect(x,L,T,bw,bh,14);x.fill();
-    x.strokeStyle="#f2cd6b";x.lineWidth=2.5;roundRect(x,L,T,bw,bh,14);x.stroke();
-    // puntino bandiera in ALTO-CENTRO, sopra il nome (zona riservata, nessuna sovrapposizione)
+    x.fillStyle="rgba(5,16,11,.95)";roundRect(x,L,T,bw,bh,12);x.fill();
+    x.strokeStyle="#f2cd6b";x.lineWidth=2.5;roundRect(x,L,T,bw,bh,12);x.stroke();
+    // puntino bandiera in ALTO-CENTRO, sopra il nome
     x.fillStyle=hslStr(teamHue(f.team));
-    x.beginPath();x.arc(cx,T+18,8,0,7);x.fill();
-    // nome centrato, sotto il puntino
-    x.fillStyle="#fff";x.font="800 30px Arial";x.textAlign="center";
-    const nm=fitName(x,f.player.n,bw-26,30);
-    x.fillText(nm,cx,T+54,bw-22);
-    // anno · rating, riga inferiore
-    x.fillStyle="#8fd9bd";x.font="600 23px Arial";
-    x.fillText(`${f.year} · ${f.player.r}`,cx,T+82,bw-22);
+    x.beginPath();x.arc(cx,T+bh*0.20,Math.max(5,bh*0.085),0,7);x.fill();
+    // nome centrato
+    const nameSize=Math.round(Math.min(28,bh*0.32));
+    x.fillStyle="#fff";x.font=`800 ${nameSize}px Arial`;x.textAlign="center";
+    const nm=fitName(x,f.player.n,bw-20,nameSize);
+    x.fillText(nm,cx,T+bh*0.60,bw-16);
+    // anno · rating
+    const subSize=Math.round(Math.min(22,bh*0.25));
+    x.fillStyle="#8fd9bd";x.font=`600 ${subSize}px Arial`;
+    x.fillText(`${f.year} · ${f.player.r}`,cx,T+bh*0.86,bw-16);
   });
 }
 
