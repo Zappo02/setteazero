@@ -106,33 +106,54 @@ function genMatchEvents(myXI, oppXI, myName, oppName, myStr, oppStr, rng){
 function buildTournament(squad,formation,seed){
   const rng=mulberry(seed);
   const myStr=squadStrength(squad);
-  // l'avversario usa l'XI ottimale della sua rosa: lo smorziamo perche' altrimenti
-  // e' strutturalmente piu' forte dell'XI che il giocatore assembla pescando alla slot.
   const OPP_DAMPEN=0.94;
-  // 3 partite gironi + 4 eliminazione = 7 partite
   const groupRounds=["Girone · G1","Girone · G2","Girone · G3"];
   const koRounds=["Ottavi","Quarti","Semifinale","Finale"];
-  const pool=[...ENTRIES].sort(()=>rng()-0.5);
-  const ties=[]; let oi=0; let eliminated=false;
-  // ---- fase a gironi: si gioca SEMPRE tutte e 3, raccogli punti
+  // pre-calcola la forza dell'XI ottimale di ogni rosa, una volta sola
+  const ranked=ENTRIES.map(e=>({e,s:squadStrength(bestXIfor(e,formation))})).sort((a,b)=>a.s-b.s);
+  const N=ranked.length;
+  // pesca un avversario da una FASCIA di forza [loPct, hiPct] del ranking
+  const usedTeams=new Set();
+  const pickFromBand=(loPct,hiPct)=>{
+    const lo=Math.floor(N*loPct), hi=Math.min(N-1,Math.floor(N*hiPct));
+    for(let tries=0;tries<60;tries++){
+      const idx=lo+Math.floor(rng()*(hi-lo+1));
+      const cand=ranked[idx];
+      if(cand && !usedTeams.has(cand.e.team)){usedTeams.add(cand.e.team);return cand;}
+    }
+    // fallback: qualunque nella fascia
+    const cand=ranked[lo+Math.floor(rng()*(hi-lo+1))]||ranked[N-1];
+    return cand;
+  };
+  // bande di forza per round: gironi via via piu' duri, KO sempre forti, finale fortissima
+  const BANDS={
+    "Girone · G1":[0.20,0.65],
+    "Girone · G2":[0.35,0.80],
+    "Girone · G3":[0.45,0.88],
+    "Ottavi":[0.55,0.90],
+    "Quarti":[0.65,0.94],
+    "Semifinale":[0.78,0.98],
+    "Finale":[0.85,1.00],
+  };
+  const ties=[]; let eliminated=false;
+  // ---- fase a gironi
   let pts=0,gfTot=0,gaTot=0;
   for(const round of groupRounds){
-    const opp=pool[oi++%pool.length];
+    const {e:opp,s:rawS}=pickFromBand(...BANDS[round]);
     const oppXI=bestXIfor(opp,formation);
-    const oppStr=Math.round(squadStrength(oppXI)*OPP_DAMPEN);
+    const oppStr=Math.round(rawS*OPP_DAMPEN);
     const m=genMatchEvents(squad,oppXI,"Tu",opp.team,myStr,oppStr,rng);
     const res=m.gf>m.ga?"W":m.gf<m.ga?"L":"D";
     pts+=res==="W"?3:res==="D"?1:0; gfTot+=m.gf; gaTot+=m.ga;
     ties.push({round,phase:"group",opp:opp.team,year:opp.year,oppStr,result:res,...m});
   }
-  // qualificazione: bastano 3 punti (1 vittoria o 3 pareggi). Soglia morbida.
   const qualified=pts>=3;
-  // ---- fase eliminazione (solo se qualificato)
+  // ---- fase eliminazione
   if(qualified){
     for(const round of koRounds){
-      const opp=pool[oi++%pool.length];
+      const {e:opp,s:rawS}=pickFromBand(...BANDS[round]);
       const oppXI=bestXIfor(opp,formation);
-      const oppStr=Math.round(squadStrength(oppXI)*OPP_DAMPEN);
+      const oppStr=Math.round(rawS*OPP_DAMPEN);
       const m=genMatchEvents(squad,oppXI,"Tu",opp.team,myStr,oppStr,rng);
       ties.push({round,phase:"ko",opp:opp.team,year:opp.year,oppStr,...m});
       if(!m.won){eliminated=true;break;}
@@ -802,6 +823,7 @@ const CSS=`
   .roster-list{max-height:46vh}
 }
 .slot-wrap{display:flex;flex-direction:column;gap:16px;align-items:center;width:100%}
+.slot-wrap .wc-brass{align-self:center}
 .slot-frame{position:relative;width:100%;background:linear-gradient(180deg,#2a1c0a,#160f06);border:3px solid var(--brass);border-radius:18px;padding:18px;box-shadow:0 0 0 4px #3a2406,inset 0 2px 10px rgba(0,0,0,.6)}
 .frame-jackpot{animation:jackpotframe .5s ease-in-out infinite alternate}
 @keyframes jackpotframe{from{box-shadow:0 0 0 4px #3a2406,inset 0 2px 10px rgba(0,0,0,.6),0 0 8px var(--brass)}to{box-shadow:0 0 0 4px var(--brass-hi),inset 0 2px 10px rgba(0,0,0,.6),0 0 34px var(--brass-hi)}}
@@ -860,7 +882,11 @@ const CSS=`
 .live-bar{height:5px;background:#0c2e1d;border-radius:3px;margin-top:8px;overflow:hidden}
 .live-bar span{display:block;height:100%;background:var(--brass-hi);transition:width .1s linear}
 .live-grid{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
-@media(max-width:860px){.live-grid{grid-template-columns:1fr}}
+@media(max-width:860px){
+  .live-grid{grid-template-columns:1fr}
+  .live-grid .pitch{order:2;max-width:300px;margin:0 auto}
+  .live-feed{order:1;min-height:200px}
+}
 .live-feed{background:var(--card);border:1px solid #235139;border-radius:14px;padding:10px;min-height:300px;display:flex;flex-direction:column;gap:6px}
 .feed-wait{opacity:.5;text-align:center;padding:30px;font-size:14px}
 .feed-ev{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:8px;background:#0a1f14;animation:pop .25s ease}
