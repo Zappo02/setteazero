@@ -174,81 +174,87 @@ function buildTournament(squad,formation,seed){
 // =====================================================================
 // CONDIVISIONE: genera immagine 1080x1350 (post IG) e usa Web Share API
 // =====================================================================
-async function shareResult({squad,formation,sim,headline,topScorers}){
+async function shareResult({squad,formation,sim,headline,scoreline,topScorers}){
   const W=1080,H=1920,cv=document.createElement("canvas");cv.width=W;cv.height=H;
   const x=cv.getContext("2d");
-  const brass="#f2cd6b", neon="#3df2c0", neonPink="#ff3d8b";
-  // ---- sfondo profondo con vignettatura
+  const brass="#f2cd6b", neon="#3df2c0", neonPink="#ff3d8b", neonRed="#ff5a52";
+  // ---- sfondo profondo
   const g=x.createLinearGradient(0,0,0,H);
   g.addColorStop(0,"#0d3a26");g.addColorStop(.5,"#0a2418");g.addColorStop(1,"#050f0a");
   x.fillStyle=g;x.fillRect(0,0,W,H);
-  // bagliore radiale dietro il titolo
-  const rg=x.createRadialGradient(W/2,440,40,W/2,440,640);
-  rg.addColorStop(0,"rgba(61,242,192,.18)");rg.addColorStop(1,"rgba(61,242,192,0)");
-  x.fillStyle=rg;x.fillRect(0,120,W,760);
-
-  // ---- header brand
-  x.textAlign="center";
-  x.fillStyle=brass;x.font="900 64px Arial Black,Arial";
-  x.fillText("SETTE A ZERO",W/2,130);
-  x.fillStyle="#8fb8a3";x.font="600 30px Arial";x.fillText("build · spin · 7–0",W/2,176);
-
-  // ---- HEADLINE NEON
+  // colore dell'esito -> guida tutta la palette dei testi grandi
   const isWin=sim.champion||sim.sevenZero;
-  const glow=sim.sevenZero?neonPink:isWin?neon:"#cdd9d1";
-  const big=sim.sevenZero?150:isWin?108:96;
+  const accent=sim.sevenZero?neonPink:sim.champion?neon:!sim.qualified?neonRed:brass;
+  // bagliore radiale dietro il titolo, tinta dell'accento
+  const ac=hexToRgb(accent);
+  const rg2=x.createRadialGradient(W/2,470,40,W/2,470,700);
+  rg2.addColorStop(0,`rgba(${ac.r},${ac.g},${ac.b},.22)`);rg2.addColorStop(1,`rgba(${ac.r},${ac.g},${ac.b},0)`);
+  x.fillStyle=rg2;x.fillRect(0,120,W,800);
+
+  // ---- HEADER BRAND (più grande)
   x.textAlign="center";
-  drawNeon(x,headline.toUpperCase(),W/2,400,W-110,big,glow,isWin);
-  if(sim.sevenZero){
-    x.fillStyle=neon;x.font="900 120px Arial Black,Arial";
-    drawNeonText(x,"7 – 0",W/2,560,neon,true);
+  drawNeonText(x,"SETTE A ZERO",W/2,150,brass,true,96);
+  x.fillStyle="#8fb8a3";x.font="600 34px Arial";x.fillText("build · spin · 7–0",W/2,200);
+
+  // ---- HEADLINE NEON (turno o esito) + SCORELINE
+  const big=sim.sevenZero?150:isWin?116:108;
+  drawNeon(x,headline.toUpperCase(),W/2,400,W-100,big,accent,true);
+  if(scoreline){
+    drawNeonText(x,scoreline,W/2,sim.sevenZero?560:540,accent,true,sim.sevenZero?150:110);
   }
 
-  // ---- CAMPO grande con formazione
-  const fx=70,fy=sim.sevenZero?640:600,fw=W-140,fh=820;
+  // ---- CAMPO grande
+  const fx=50,fy=scoreline?620:560,fw=W-100,fh=900;
   drawPitch(x,fx,fy,fw,fh,squad,formation);
 
-  // ---- CAMMINO (riga sintetica sotto al campo)
-  let cy=fy+fh+70;
+  // ---- CAMMINO sintetico
+  let cy=fy+fh+64;
   const grp=sim.ties.filter(t=>t.phase==="group");
   const gW=grp.filter(t=>t.result==="W").length,gD=grp.filter(t=>t.result==="D").length,gL=grp.filter(t=>t.result==="L").length;
-  x.textAlign="center";x.fillStyle="#7fa890";x.font="700 26px Arial";x.fillText("IL CAMMINO",W/2,cy);
-  cy+=46;x.fillStyle="#eaf4ec";x.font="600 32px Arial";
+  x.textAlign="center";x.fillStyle="#7fa890";x.font="700 28px Arial";x.fillText("IL CAMMINO",W/2,cy);
+  cy+=48;x.fillStyle="#eaf4ec";x.font="600 34px Arial";
   let line=`Gironi ${gW}V-${gD}N-${gL}P`;
   const ko=sim.ties.filter(t=>t.phase==="ko");
   if(ko.length) line+="   ·   "+ko.map(m=>`${m.round.slice(0,3)} ${m.gf}-${m.ga}`).join("   ");
-  wrapText(x,line,W/2,cy,W-120,42,"center");
+  wrapText(x,line,W/2,cy,W-100,44,"center");
 
-  // ---- MVP + FORZA (due riquadri affiancati)
+  // ---- MVP + FORZA (riquadri più grandi)
   const mvp=topScorers[0];
-  const by=H-300, pad=70, boxW=(W-pad*2-30);
-  // MVP box (largo)
-  x.fillStyle="rgba(61,242,192,.10)";roundRect(x,pad,by,boxW*0.64,170,22);x.fill();
-  x.strokeStyle=neon;x.lineWidth=3;roundRect(x,pad,by,boxW*0.64,170,22);x.stroke();
+  const by=H-330, pad=50, boxGap=26, totW=W-pad*2-boxGap;
+  const mvpW=totW*0.64, forW=totW*0.36, boxH=190;
+  // MVP
+  x.fillStyle=`rgba(${hexToRgb(neon).r},${hexToRgb(neon).g},${hexToRgb(neon).b},.10)`;
+  roundRect(x,pad,by,mvpW,boxH,24);x.fill();
+  x.strokeStyle=neon;x.lineWidth=3;roundRect(x,pad,by,mvpW,boxH,24);x.stroke();
   x.textAlign="left";
-  x.fillStyle=neon;x.font="800 26px Arial";x.fillText("⭐ MIGLIORE IN CAMPO",pad+30,by+50);
-  x.fillStyle="#fff";x.font="900 52px Arial Black,Arial";
-  x.fillText(fitName(x,mvp.player.n,boxW*0.64-60,52),pad+30,by+108);
-  x.fillStyle="#9fc4ad";x.font="500 28px Arial";
-  x.fillText(`${mvp.team} '${mvp.year.slice(2)} · ${mvp.goals}G ${mvp.assists}A`,pad+30,by+148);
-  // FORZA box (stretto)
-  const fbx=pad+boxW*0.64+30;
-  x.fillStyle="rgba(242,205,107,.12)";roundRect(x,fbx,by,boxW*0.36,170,22);x.fill();
-  x.strokeStyle=brass;x.lineWidth=3;roundRect(x,fbx,by,boxW*0.36,170,22);x.stroke();
-  x.textAlign="center";const fcx=fbx+boxW*0.18;
-  x.fillStyle=brass;x.font="900 92px Arial Black,Arial";x.fillText(String(sim.myStr),fcx,by+108);
-  x.fillStyle="#9fc4ad";x.font="700 24px Arial";x.fillText("FORZA XI",fcx,by+148);
+  x.fillStyle=neon;x.font="800 30px Arial";x.fillText("★ MIGLIORE IN CAMPO",pad+34,by+56);
+  x.fillStyle="#fff";x.font="900 60px Arial Black,Arial";
+  x.fillText(fitName(x,mvp.player.n,mvpW-68,60),pad+34,by+120);
+  x.fillStyle="#9fc4ad";x.font="500 32px Arial";
+  x.fillText(`${mvp.team} '${mvp.year.slice(2)} · ${mvp.goals}G ${mvp.assists}A`,pad+34,by+164);
+  // FORZA
+  const fbx=pad+mvpW+boxGap;
+  x.fillStyle=`rgba(${hexToRgb(brass).r},${hexToRgb(brass).g},${hexToRgb(brass).b},.12)`;
+  roundRect(x,fbx,by,forW,boxH,24);x.fill();
+  x.strokeStyle=brass;x.lineWidth=3;roundRect(x,fbx,by,forW,boxH,24);x.stroke();
+  x.textAlign="center";const fcx=fbx+forW/2;
+  x.fillStyle=brass;x.font="900 104px Arial Black,Arial";x.fillText(String(sim.myStr),fcx,by+118);
+  x.fillStyle="#9fc4ad";x.font="700 26px Arial";x.fillText("FORZA XI",fcx,by+162);
 
   // ---- footer
-  x.textAlign="center";x.fillStyle=brass;x.font="800 36px Arial";
-  x.fillText("universosportivo.com",W/2,H-70);
+  x.textAlign="center";x.fillStyle=brass;x.font="800 40px Arial";
+  x.fillText("universosportivo.com",W/2,H-64);
 
   const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
   const file=new File([blob],"sette-a-zero.png",{type:"image/png"});
   const shareData={files:[file],title:"Sette a Zero",text:`${headline} — il mio undici dei Mondiali su Sette a Zero. Forza XI ${sim.myStr}. Gioca su universosportivo.com`};
-  if(navigator.canShare&&navigator.canShare(shareData)){ await navigator.share(shareData); }
-  else{ const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="sette-a-zero.png";a.click();URL.revokeObjectURL(url); }
+  try{
+    if(navigator.canShare&&navigator.canShare(shareData)){ await navigator.share(shareData); return; }
+  }catch(e){ /* utente ha annullato o share non disponibile: si scarica */ }
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="sette-a-zero.png";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+function hexToRgb(h){const n=parseInt(h.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
 // testo neon multilinea
 function drawNeon(x,text,cx,cy,maxW,size,color,strong){
   x.font=`900 ${size}px Arial Black,Arial`;
@@ -256,14 +262,17 @@ function drawNeon(x,text,cx,cy,maxW,size,color,strong){
   for(const w of words){const t=line?line+" "+w:w;if(x.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}
   if(line)lines.push(line);
   let y=cy-(lines.length-1)*size*0.55;
-  for(const l of lines){drawNeonText(x,l,cx,y,color,strong);y+=size*1.05;}
+  for(const l of lines){drawNeonText(x,l,cx,y,color,strong,size);y+=size*1.05;}
 }
-function drawNeonText(x,t,cx,y,color,strong){
+function drawNeonText(x,t,cx,y,color,strong,size){
   x.save();x.textAlign="center";
-  if(strong){x.shadowColor=color;x.shadowBlur=38;x.fillStyle=color;x.fillText(t,cx,y);
-    x.shadowBlur=18;x.fillText(t,cx,y);x.shadowBlur=0;
-    x.fillStyle="#ffffff";x.lineWidth=0;x.fillText(t,cx,y);
-    x.strokeStyle=color;x.lineWidth=2;x.strokeText(t,cx,y);
+  if(size)x.font=`900 ${size}px Arial Black,Arial`;
+  if(strong){
+    x.shadowColor=color;x.shadowBlur=46;x.fillStyle=color;x.fillText(t,cx,y);
+    x.shadowBlur=24;x.fillText(t,cx,y);
+    x.shadowBlur=0;
+    x.fillStyle="#ffffff";x.fillText(t,cx,y);
+    x.strokeStyle=color;x.lineWidth=2.5;x.strokeText(t,cx,y);
   }else{x.shadowColor="rgba(0,0,0,.4)";x.shadowBlur=8;x.fillStyle=color;x.fillText(t,cx,y);}
   x.restore();
 }
@@ -284,30 +293,32 @@ function wrapText(x,text,cx,cy,maxW,lh,align="center"){
 }
 function hslStr(h){return `hsl(${h} 65% 50%)`;}
 function drawPitch(x,X,Y,w,h,squad,formation){
-  const stripes=10;for(let i=0;i<stripes;i++){x.fillStyle=i%2?"#0a5e34":"#0c6e3d";x.fillRect(X,Y+i*(h/stripes),w,h/stripes);}
-  x.strokeStyle="rgba(255,255,255,.5)";x.lineWidth=4;
-  roundRect(x,X+16,Y+16,w-32,h-32,10);x.stroke();
-  x.beginPath();x.moveTo(X+16,Y+h/2);x.lineTo(X+w-16,Y+h/2);x.stroke();
-  x.beginPath();x.arc(X+w/2,Y+h/2,64,0,7);x.stroke();
-  // area di rigore
-  x.strokeRect(X+w*0.28,Y+16,w*0.44,90);x.strokeRect(X+w*0.28,Y+h-106,w*0.44,90);
+  // campo verde UNIFORME (niente strisce a due tonalità)
+  x.fillStyle="#0c6e3d";x.fillRect(X,Y,w,h);
+  // linee bianche
+  x.strokeStyle="rgba(255,255,255,.45)";x.lineWidth=4;
+  roundRect(x,X+18,Y+18,w-36,h-36,12);x.stroke();
+  x.beginPath();x.moveTo(X+18,Y+h/2);x.lineTo(X+w-18,Y+h/2);x.stroke();
+  x.beginPath();x.arc(X+w/2,Y+h/2,72,0,7);x.stroke();
+  x.strokeRect(X+w*0.27,Y+18,w*0.46,100);x.strokeRect(X+w*0.27,Y+h-118,w*0.46,100);
+  // card giocatori più grandi
   formation.forEach(([role,px,py],i)=>{
     const f=squad[i];if(!f)return;
     const cx=X+(px/100)*w,cy=Y+(py/100)*h;
-    const bw=Math.min(190,w/4.0),bh=70;
-    // ombra + card
-    x.fillStyle="rgba(5,16,11,.94)";roundRect(x,cx-bw/2,cy-bh/2,bw,bh,12);x.fill();
-    x.strokeStyle="#f2cd6b";x.lineWidth=2.5;roundRect(x,cx-bw/2,cy-bh/2,bw,bh,12);x.stroke();
-    // puntino bandiera (colore per nazione)
+    const bw=Math.min(218,w/3.6),bh=92;
+    const L=cx-bw/2, T=cy-bh/2;
+    x.fillStyle="rgba(5,16,11,.95)";roundRect(x,L,T,bw,bh,14);x.fill();
+    x.strokeStyle="#f2cd6b";x.lineWidth=2.5;roundRect(x,L,T,bw,bh,14);x.stroke();
+    // puntino bandiera in ALTO-CENTRO, sopra il nome (zona riservata, nessuna sovrapposizione)
     x.fillStyle=hslStr(teamHue(f.team));
-    x.beginPath();x.arc(cx-bw/2+20,cy-bh/2+20,9,0,7);x.fill();
-    // nome
-    x.fillStyle="#fff";x.font="800 26px Arial";x.textAlign="center";
-    const nm=fitName(x,f.player.n,bw-24,26);
-    x.fillText(nm,cx,cy+2,bw-18);
-    // anno · rating
-    x.fillStyle="#8fd9bd";x.font="600 20px Arial";
-    x.fillText(`${f.year} · ${f.player.r}`,cx,cy+28,bw-18);
+    x.beginPath();x.arc(cx,T+18,8,0,7);x.fill();
+    // nome centrato, sotto il puntino
+    x.fillStyle="#fff";x.font="800 30px Arial";x.textAlign="center";
+    const nm=fitName(x,f.player.n,bw-26,30);
+    x.fillText(nm,cx,T+54,bw-22);
+    // anno · rating, riga inferiore
+    x.fillStyle="#8fd9bd";x.font="600 23px Arial";
+    x.fillText(`${f.year} · ${f.player.r}`,cx,T+82,bw-22);
   });
 }
 
@@ -673,20 +684,30 @@ function LiveTournament({sim,squad,formation,hide,onDone}){
   );
 }
 
+function roundShort(round){
+  // "Girone · G1" -> "GIRONI"; "Ottavi" -> "OTTAVI"; ecc.
+  if(round.startsWith("Girone")) return "GIRONI";
+  return round.toUpperCase();
+}
+function roundPrep(round){
+  const map={"Ottavi":"AGLI OTTAVI","Quarti":"AI QUARTI","Semifinale":"IN SEMIFINALE","Finale":"IN FINALE"};
+  return map[round]||("A "+round.toUpperCase());
+}
 function Result({squad,formation,hide,sim,onRestart,onRebuild}){
   const last=sim.ties[sim.ties.length-1];
-  const headline=sim.sevenZero?"SETTE A ZERO!":sim.champion?"CAMPIONI DEL MONDO":!sim.qualified?"Fuori ai gironi":"Eliminati";
-  const sub=sim.sevenZero?"Hai chiuso la finale 7–0. Impresa leggendaria."
-    :sim.champion?"Coppa alzata — ma non è finita 7–0. Riprova."
-    :!sim.qualified?`Eliminato nella fase a gironi con ${sim.groupPts} punti.`
-    :`Fuori ai ${last.round}.`;
+  // headline e sottotitolo per ogni esito
+  let headline, scoreline=null, sub;
+  if(sim.sevenZero){ headline="SETTE A ZERO!"; sub="Hai chiuso la finale 7–0. Impresa leggendaria."; }
+  else if(sim.champion){ headline="CAMPIONI DEL MONDO"; sub="Coppa alzata — ma non è finita 7–0. Riprova."; }
+  else if(!sim.qualified){ headline="FUORI AI GIRONI"; sub=`Eliminato nella fase a gironi con ${sim.groupPts} punti.`; scoreline=`Gironi ${sim.groupPts} pti`; }
+  else { headline=`FUORI ${roundPrep(last.round)}`; scoreline=`${last.gf}–${last.ga}`; sub=`Eliminato ${roundPrep(last.round)} contro ${last.opp}.`; }
   const topScorers=[...sim.stats].sort((a,b)=>(b.goals*2+b.assists)-(a.goals*2+a.assists));
   const totGoals=sim.stats.reduce((s,p)=>s+p.goals,0);
   const totAssists=sim.stats.reduce((s,p)=>s+p.assists,0);
   const [sharing,setSharing]=useState(false);
   const doShare=async()=>{
     setSharing(true);
-    try{ await shareResult({squad,formation,sim,headline,topScorers}); }
+    try{ await shareResult({squad,formation,sim,headline,scoreline,topScorers}); }
     catch(e){ console.error(e); }
     setSharing(false);
   };
